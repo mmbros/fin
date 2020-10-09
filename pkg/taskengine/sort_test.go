@@ -4,94 +4,96 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
 )
 
-func TestTaskWorkers(t *testing.T) {
-
-	lessFunc := func(a, b WorkerID) bool { return a < b }
+func TestSortTasksByLessWorkers(t *testing.T) {
 
 	type testCase struct {
 		input WorkerTasks
-		want  mapTaskWorkers
+		want  WorkerTasks
+	}
+
+	T := func(tids ...string) Tasks {
+		res := Tasks{}
+		for _, tid := range tids {
+			res = append(res, &testCaseTask{tid, 10, true})
+		}
+		return res
 	}
 
 	testCases := map[string]testCase{
-		"test case 1": {
+		"different # of T for each W": {
 			input: WorkerTasks{
-				"w1": {&testCaseTask{"t3", 30, true}, &testCaseTask{"t2", 20, true}, &testCaseTask{"t1", 10, true}},
-				"w2": {&testCaseTask{"t3", 20, true}, &testCaseTask{"t2", 10, true}},
-				"w3": {&testCaseTask{"t3", 10, true}},
+				"w1": T("t3", "t2", "t1"),
+				"w2": T("t3", "t2"),
+				"w3": T("t3"),
 			},
-			want: mapTaskWorkers{
-				"t1": {"w1"},
-				"t2": {"w1", "w2"},
-				"t3": {"w1", "w2", "w3"},
+			want: WorkerTasks{
+				"w1": T("t1", "t2", "t3"),
+				"w2": T("t2", "t3"),
+				"w3": T("t3"),
 			},
 		},
-		"test case 2": {
+		"same T for all W": {
 			input: WorkerTasks{
-				"w1": {&testCaseTask{"tt", 10, true}},
-				"w2": {&testCaseTask{"tt", 10, true}},
-				"w3": {&testCaseTask{"tt", 10, true}},
-				"w4": {&testCaseTask{"tt", 10, true}},
-				"w5": {&testCaseTask{"tt", 10, true}},
+				"w1": T("t1", "t2", "t3"),
+				"w2": T("t1", "t2", "t3"),
+				"w3": T("t1", "t2", "t3"),
 			},
-			want: mapTaskWorkers{
-				"tt": {"w5", "w2", "w3", "w4", "w1"},
+			want: WorkerTasks{
+				"w1": T("t1", "t2", "t3"),
+				"w2": T("t2", "t3", "t1"),
+				"w3": T("t3", "t1", "t2"),
 			},
-		}}
+		},
+		"test case 3": {
+			input: WorkerTasks{
+				"w1": T("t3", "t2"),
+				"w2": T("t3", "t1"),
+				"w3": T("t1", "t2"),
+			},
+			want: WorkerTasks{
+				"w1": T("t2", "t3"),
+				"w2": T("t3", "t1"),
+				"w3": T("t1", "t2"),
+			},
+		},
+		"test case 4": {
+			input: WorkerTasks{
+				"w1": T("t1", "t2"),
+				"w2": T("t1", "t2"),
+				"w3": T("t1", "t2"),
+			},
+			want: WorkerTasks{
+				"w1": T("t1", "t2"),
+				"w2": T("t2", "t1"),
+				"w3": T("t1", "t2"),
+			},
+		},
+		"test case 5": {
+			input: WorkerTasks{
+				"w1": T("t2", "t1", "t7", "t8", "t9"),
+				"w2": T("t4", "t3", "t7", "t8", "t9"),
+				"w3": T("t6", "t5", "t7", "t8", "t9"),
+			},
+			want: WorkerTasks{
+				"w1": T("t1", "t2", "t7", "t8", "t9"),
+				"w2": T("t3", "t4", "t8", "t9", "t7"),
+				"w3": T("t5", "t6", "t9", "t7", "t8"),
+			},
+		},
+	}
 
 	copts := cmp.Options{
-		// cmpopts.SortMaps(lessFunc),
-		cmpopts.SortSlices(lessFunc),
+		//cmpopts.IgnoreUnexported(testCaseTask{}),
 	}
-	for title, tc := range testCases {
-		got := tc.input.taskWorkers()
-		if diff := cmp.Diff(tc.want, got, copts); diff != "" {
-			t.Errorf("%s: mismatch (-want +got):\n%v", title, diff)
-		}
-	}
-}
-
-func TestGetSortedTasksByLessWorkers(t *testing.T) {
-	type testCase struct {
-		input mapTaskWorkers
-		want  []TaskID
-	}
-
-	testCases := map[string]testCase{
-		"tasks with different number of workers": {
-			input: mapTaskWorkers{
-				"t1": {"w1"},
-				"t2": {"w1", "w2"},
-				"t3": {"w1", "w2", "w3"},
-			},
-			want: []TaskID{"t1", "t2", "t3"},
-		},
-		"all tasks with the same number of workers": {
-			input: mapTaskWorkers{
-				"t1": {"w1", "w2"},
-				"t2": {"w2", "w3"},
-				"t3": {"w3", "w1"},
-			},
-			want: []TaskID{"t1", "t2", "t3"},
-		},
-		"some tasks with the same number of workers": {
-			input: mapTaskWorkers{
-				"t1": {"w3", "w1"},
-				"t2": {"w3", "w2"},
-				"t3": {"w3", "w2", "w1"},
-			},
-			want: []TaskID{"t1", "t2", "t3"},
-		},
-	}
-	copts := cmp.Options{}
 
 	for title, tc := range testCases {
-		got := tc.input.getSortedTasksByLessWorkers()
+		got := tc.input
+		got.SortTasks()
+
 		if diff := cmp.Diff(tc.want, got, copts); diff != "" {
-			t.Errorf("%s: mismatch (-want +got):\n%v", title, diff)
+			t.Errorf("%s: mismatch (-want +got):\n%s", title, diff)
 		}
 	}
 }

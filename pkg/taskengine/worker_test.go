@@ -33,7 +33,9 @@ type simpleResult struct {
 	success  bool
 }
 
-func (t *testCaseTask) TaskID() TaskID { return TaskID(t.taskid) }
+func (t *testCaseTask) TaskID() TaskID                 { return TaskID(t.taskid) }
+func (t *testCaseTask) Equal(other *testCaseTask) bool { return t.taskid == other.taskid }
+func (t *testCaseTask) String() string                 { return string(t.taskid) }
 
 func (res *testResult) Success() bool { return res.err == nil }
 func (res *testResult) Status() string {
