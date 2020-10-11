@@ -54,9 +54,6 @@ def get_commodity_fullname(num):
 def get_commodity_isin(num):
     return "TEST%08d" % num
 
-def get_gnucash_file():
-    return "TEST%08d" % num
-
 
 def insert_test_commodity(book, num):
     comm = gnc_commodity_new(
